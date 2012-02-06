@@ -176,3 +176,12 @@ check-decoder: outdirs $(BINUTILS_STAMP) $(OBJD)/one-instruction.dot \
 	  --tester=./decoder_test_one_file.sh \
 	  --nthreads=`cat /proc/cpuinfo | grep processor | wc -l` -- \
 	  "$(OUT)/test/test_dfa" "$(FAST_TMP_FOR_TEST)"
+
+.PHONY: check-ncval
+check-ncval: outdirs $(BINUTILS_STAMP) $(OBJD)/validator-test-x86_64 \
+    $(OBJD)/decoder-test-x86_64
+	$(PYTHON2X) run_ncval_tests.py \
+	  --decoder="$(OBJD)/decoder-test-x86_64" \
+	  --validator="$(OBJD)/validator-test-x86_64" \
+	  --gas="$(GAS)" \
+	  --tmp="$(OUT)/test/"
