@@ -341,7 +341,8 @@
 	vex_prefix2 = 0xe0;
 	vex_prefix3 = 0x00;
      })*
-    $!{ process_error(p, userdata);
+    $err{
+        process_error(p != eof ? p : p - 1, userdata);
 	result = 1;
 	goto error_detected;
     };

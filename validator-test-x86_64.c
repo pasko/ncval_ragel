@@ -70,7 +70,8 @@ struct ValidateState {
 
 void ProcessError (const uint8_t *ptr, void *userdata) {
   printf("rejected at 0x%zx (byte 0x%02x)\n",
-                      ptr - (((struct ValidateState *)userdata)->offset), *ptr);
+         ptr - (((struct ValidateState *)userdata)->offset),
+         *ptr);
 }
 
 int ValidateFile(const char *filename, int repeat_count) {
