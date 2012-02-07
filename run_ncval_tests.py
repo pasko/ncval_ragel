@@ -48,7 +48,7 @@ def RunTest(tmp, gas, decoder, validator, test):
       asm += sep + word
       sep = ', 0x'
     asm = asm + '\n'
-  for i in xrange(32 - (bytes_written % 32)):
+  for i in xrange((32 - (bytes_written % 32)) % 32):
     asm += 'nop\n'
   asmfile = os.path.basename(hexfile[:-4]) + '.s'
   asmfile = os.path.join(tmp, asmfile)
