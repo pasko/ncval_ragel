@@ -69,7 +69,7 @@ struct ValidateState {
 };
 
 void ProcessError (const uint8_t *ptr, void *userdata) {
-  printf("rejected at 0x%zx (byte 0x%02x)\n",
+  printf("offset 0x%zx: rejected byte 0x%02x\n",
          ptr - (((struct ValidateState *)userdata)->offset),
          *ptr);
 }
