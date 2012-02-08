@@ -26,6 +26,18 @@ def WriteFile(filename, data):
     fh.close()
 
 
+def ReadFile(filename):
+  try:
+    file = open(filename, 'r')
+  except IOError, e:
+    print >> sys.stderr, ('I/O Error reading file %s: %s' %
+                          (filename, e.strerror))
+    return None
+  contents = file.read()
+  file.close()
+  return contents
+
+
 def PrintError(msg):
   print >> sys.stderr, 'error: %s' % msg
 
@@ -35,16 +47,21 @@ def CheckAsm(asm, asmfile, gas, decoder, validator):
   basename = asmfile[:-2]
   objfile = basename + '.o'
   gas_command = [gas, asmfile, '-o', objfile]
-  retcode = subprocess.check_call(gas_command)
+  if subprocess.call(gas_command) != 0:
+    return (False, [])
   decoder_process = subprocess.Popen([decoder, objfile], stdout=subprocess.PIPE)
   (decode_out, decode_err) = decoder_process.communicate()
   WriteFile(basename + '.decode.out', decode_out)
   validator_process = subprocess.Popen([validator, objfile],
                                        stdout=subprocess.PIPE)
   (val_out, val_err) = validator_process.communicate()
-  # WriteFile(asmfile[:-2] + '.val.out', val_out)
-  print val_out
-  return []
+  offsets = []
+  for line in string.split(val_out, '\n'):
+    re_match = re.match(r'offset ([^:]+):.+', line)
+    if not re_match:
+      continue
+    offsets.append(int(re_match.group(1), 16))
+  return (True, offsets)
 
 
 def FillOneBundle(start_pos, total_bytes, insts):
@@ -76,8 +93,16 @@ def FillOneBundle(start_pos, total_bytes, insts):
   return (asm, new_pos)
 
 
-def CompareOffsets(off_list, hexfile):
-  return True
+def CompareOffsets(tmp, off_list, hexfile):
+  output = ''
+  for off in off_list:
+    output += 'offset 0x%x: validation error\n' % off
+  WriteFile(os.path.join(tmp , os.path.basename(hexfile[:-4]) + '.val.out'),
+            output)
+  golden = ReadFile(hexfile[:-4] + '.val.ref')
+  if output == golden:
+    return True
+  return False
 
 
 def RunTest(tmp, gas, decoder, validator, test):
@@ -105,14 +130,16 @@ def RunTest(tmp, gas, decoder, validator, test):
   runs = 0
   top_errors = []
   while True:
-    (asm, new_pos) = FillOneBundle(start_pos, total_bytes, hex_instructions)
+    (asm, next_pos) = FillOneBundle(start_pos, total_bytes, hex_instructions)
     if not asm:
       break
-    assert(start_pos < new_pos)
-    start_pos = new_pos
+    assert(start_pos < next_pos)
+    start_pos = next_pos
     asmfile = os.path.basename(hexfile[:-4]) + ('_part%d.s' % runs)
     asmfile = os.path.join(tmp, asmfile)
-    err_offsets = CheckAsm(asm, asmfile, gas, decoder, validator)
+    (status, err_offsets) = CheckAsm(asm, asmfile, gas, decoder, validator)
+    if not status:
+      return False
     runs += 1
 
     # Collect offsets where validation errors occurred.
@@ -120,7 +147,7 @@ def RunTest(tmp, gas, decoder, validator, test):
       top_errors.append(start_pos + off)
 
   # Compare the collected offsets with the golden file.
-  if not CompareOffsets(top_errors, hexfile):
+  if not CompareOffsets(tmp, top_errors, hexfile):
     return False
   return True
 
