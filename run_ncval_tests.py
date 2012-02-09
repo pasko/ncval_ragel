@@ -42,16 +42,35 @@ def PrintError(msg):
   print >> sys.stderr, 'error: %s' % msg
 
 
-def CheckAsm(asm, asmfile, gas, decoder, validator):
+def CheckDecoder(insts, tmp, hexfile, gas, decoder):
+  asm = '.text\n'
+  for inst in insts:
+    sep = '.byte 0x'
+    for byte in inst:
+        asm += sep + byte
+        sep = ', 0x'
+    asm += '\n'
+  basename = os.path.basename(hexfile[:-4])
+  asmfile = os.path.join(tmp , basename + '.all.s')
+  objfile = basename + '.o'
+  WriteFile(asmfile, asm)
+  gas_cmd = [gas, asmfile, '-o', objfile]
+  if subprocess.call(gas_cmd) != 0:
+    PrintError('assembler failed to execute command: %s' % gas_cmd)
+    return False
+  decoder_process = subprocess.Popen([decoder, objfile], stdout=subprocess.PIPE)
+  (decode_out, decode_err) = decoder_process.communicate()
+  WriteFile(os.path.join(tmp, basename + '.all.decode.out'), decode_out)
+  # TODO: compare with objdump
+  return True
+
+
+def CheckAsm(asm, asmfile, gas, validator):
   WriteFile(asmfile, asm)
   basename = asmfile[:-2]
   objfile = basename + '.o'
-  gas_command = [gas, asmfile, '-o', objfile]
-  if subprocess.call(gas_command) != 0:
+  if subprocess.call([gas, asmfile, '-o', objfile]) != 0:
     return (False, [])
-  decoder_process = subprocess.Popen([decoder, objfile], stdout=subprocess.PIPE)
-  (decode_out, decode_err) = decoder_process.communicate()
-  WriteFile(basename + '.decode.out', decode_out)
   validator_process = subprocess.Popen([validator, objfile],
                                        stdout=subprocess.PIPE)
   (val_out, val_err) = validator_process.communicate()
@@ -125,6 +144,10 @@ def RunTest(tmp, gas, decoder, validator, test):
     if len(one_inst) != 0:
       hex_instructions.append(one_inst)
 
+  # Check disassembling of the whole input.
+  if not CheckDecoder(hex_instructions, tmp, hexfile, gas, decoder):
+    return False
+
   # Cut the input instructions in bundles and run a test for each bundle.
   start_pos = 0
   runs = 0
@@ -137,7 +160,7 @@ def RunTest(tmp, gas, decoder, validator, test):
     start_pos = next_pos
     asmfile = os.path.basename(hexfile[:-4]) + ('_part%d.s' % runs)
     asmfile = os.path.join(tmp, asmfile)
-    (status, err_offsets) = CheckAsm(asm, asmfile, gas, decoder, validator)
+    (status, err_offsets) = CheckAsm(asm, asmfile, gas, validator)
     if not status:
       return False
     runs += 1
