@@ -179,6 +179,7 @@ def Main():
   parser = optparse.OptionParser()
   parser.add_option(
       '-t', '--tests', dest='tests',
+#      default='rex_invalid,ud2,stack_regs,stosd67,mov-lea-rbp,valid_lea_store,mov-lea-rbp-bad-1,mov-esi-nop-use,mov-lea-rbp-bad-3,return,call-ex,data66prefix,maskmov_test,call1,rip-relative,incno67,hlt,change-subregs,pop-rbp,jump_not_atomic,invalid_base,jmp0,prefix-single,prefix-3,call_not_aligned,call_short,add_rsp_r15,segment_not_aligned,prefix-2,call0,invalid_base_store,add_mult_prefix,segment_store,lea-rsp,inc67,extensions,call_long,mov_rbp_2_rsp,rip67,movsbw,mv_ebp_add_crossing,sub-add-rsp,fs_use,cpuid,read_const_ptr,cmpxchg,jump_underflow,add_cs_gs_prefix,mov-lea-rbp-bad-5,nacl_illegal,rep_tests,mov-lea-rsp,legacy,test_insts,valid_base_only,mov-lea-rbp-bad-4,fpu,rdmsr,segment_assign,bad66,wrmsr,stosd,mv_ebp_alone,jump_overflow,jump_atomic,movlps-ex,3DNow,bsf-mask,mv_ebp_add_rbp_r15,jmp-16,nops,ambig-segment,update-rsp,bt,sub-rsp,strings,mov_esp_add_rsp_r15,sse,indirect_jmp_masked,movs_test,addrex,segment_aligned,addrex2,bsr-mask,stosd-bad,indirect_jmp_not_masked,call_aligned,rex_not_last,invalid_width_index,jump_outside,x87,mmx,rbp67,push-memoff,AhNotSubRsp,jump_not_atomic_1,call_not_aligned_16,mov-lea-rbp-bad-2,valid_and_store,stosdno67,lea,dup-prefix,stubseq,lea-add-rsp',
       default='bt',
       help='a comma-separated list of tests')
   parser.add_option(
