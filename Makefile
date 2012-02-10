@@ -52,7 +52,7 @@ $(OBJD)/validator-test-x86_64: \
     $(OBJD)/validator-x86_64.o $(OBJD)/validator-test-x86_64.o
 
 GEN_DECODER=$(OBJD)/gen-decoder
-$(GEN_DECODER): gen-decoder.C
+$(GEN_DECODER): gen-decoder.C | $(OUT_DIRS)
 	$(CXX) $(CXXFLAGS) $< -o $(GEN_DECODER)
 
 $(OBJD)/decoder-x86_64.c: $(OBJD)/decoder-x86_64-instruction-consts.c
