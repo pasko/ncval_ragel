@@ -84,11 +84,13 @@ def CompareOffsets(tmp, off_list, hexfile):
   for off in off_list:
     output += 'offset 0x%x: validation error\n' % off
   basename = os.path.basename(hexfile[:-4])
-  WriteFile(os.path.join(tmp , basename + '.val.out'),
-            output)
-  golden = ReadFile(os.path.join('golden', basename + '.val.ref'))
+  output_file = os.path.join(tmp , basename + '.val.out')
+  WriteFile(output_file, output)
+  golden_file = os.path.join('golden', basename + '.val.ref')
+  golden = ReadFile(golden_file)
   if output == golden:
     return True
+  PrintError('files differ: %s %s' % (output_file, golden_file))
   return False
 
 
