@@ -69,9 +69,8 @@ struct ValidateState {
 };
 
 void ProcessError (const uint8_t *ptr, void *userdata) {
-  printf("offset 0x%zx: rejected byte 0x%02x\n",
-         ptr - (((struct ValidateState *)userdata)->offset),
-         *ptr);
+  printf("offset 0x%zx: DFA error in validator\n",
+         ptr - (((struct ValidateState *)userdata)->offset));
 }
 
 int ValidateFile(const char *filename, int repeat_count) {

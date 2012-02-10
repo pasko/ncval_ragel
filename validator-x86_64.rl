@@ -96,11 +96,11 @@ void PrintError(const char* msg, uintptr_t ptr) {
     /* Restricted %rsp or %rbp must be processed by appropriate nacl-special
        instruction, not with regular instruction.  */
     if (restricted_register == REG_RSP) {
-      PrintError("Incorrectly modified register %%rsp\n", p - data);
+      PrintError("Incorrectly modified register %%rsp\n", begin - data);
       result = 1;
       goto error_detected;
     } else if (restricted_register == REG_RBP) {
-      PrintError("Incorrectly modified register %%rbp\n", p - data);
+      PrintError("Incorrectly modified register %%rbp\n", begin - data);
       result = 1;
       goto error_detected;
     }
@@ -132,7 +132,7 @@ void PrintError(const char* msg, uintptr_t ptr) {
 	if (operands[i].write && operands[i].name <= REG_R15) {
 	  if (operands[i].type == OperandSandboxRestricted) {
 	    if (operands[i].name == REG_R15) {
-	      PrintError("Incorrectly modified register %%r15\n", p - data);
+	      PrintError("Incorrectly modified register %%r15\n", begin - data);
               result = 1;
               goto error_detected;
 	    } else {
@@ -140,21 +140,21 @@ void PrintError(const char* msg, uintptr_t ptr) {
 	    }
 	  } else if (operands[i].type == OperandSandboxUnrestricted) {
 	    if (operands[i].name == REG_RBP) {
-	      PrintError("Incorrectly modified register %%rbp\n", p - data);
+	      PrintError("Incorrectly modified register %%rbp\n", begin - data);
               result = 1;
               goto error_detected;
 	    } else if (operands[i].name == REG_RSP) {
-	      PrintError("Incorrectly modified register %%rsp\n", p - data);
+	      PrintError("Incorrectly modified register %%rsp\n", begin - data);
               result = 1;
               goto error_detected;
 	    } else if (operands[i].name == REG_R15) {
-	      PrintError("Incorrectly modified register %%r15\n", p - data);
+	      PrintError("Incorrectly modified register %%r15\n", begin - data);
               result = 1;
               goto error_detected;
 	    }
 	  } else if (operands[i].type == OperandNoSandboxEffect) {
 	    if (operands[i].name == REG_R15) {
-	      PrintError("Incorrectly modified register %%r15\n", p - data);
+	      PrintError("Incorrectly modified register %%r15\n", begin - data);
               result = 1;
               goto error_detected;
 	    }
@@ -186,7 +186,7 @@ void PrintError(const char* msg, uintptr_t ptr) {
     (0x48 0x81 0xe4 any{3} (0x80 .. 0xff)) | # and $XXX,%rsp
     (0x48 0x83 0xe4 (0x80 .. 0xff))	     # and $XXX,%rsp
     @{ if (restricted_register == REG_RSP) {
-	 PrintError("Incorrectly modified register %%rsp\n", p - data);
+	 PrintError("Incorrectly modified register %%rsp\n", begin - data);
          result = 1;
          goto error_detected;
        }
@@ -196,7 +196,7 @@ void PrintError(const char* msg, uintptr_t ptr) {
     (0x48 0x81 0xe5 any{3} (0x80 .. 0xff)) | # and $XXX,%rsp
     (0x48 0x83 0xe5 (0x80 .. 0xff))	     # and $XXX,%rsp
     @{ if (restricted_register == REG_RBP) {
-	 PrintError("Incorrectly modified register %%rbp\n", p - data);
+	 PrintError("Incorrectly modified register %%rbp\n", begin - data);
          result = 1;
          goto error_detected;
        }
@@ -206,7 +206,7 @@ void PrintError(const char* msg, uintptr_t ptr) {
      0x49 0x8d 0x2c 0x2f       | # lea (%r15,%rbp,1),%rbp
      0x4a 0x8d 0x6c 0x3d 0x00)	 # lea 0x0(%rbp,%r15,1),%rbp
     @{ if (restricted_register != REG_RBP) {
-	 PrintError("Incorrectly sandboxed %%rbp\n", p - data);
+	 PrintError("Incorrectly sandboxed %%rbp\n", begin - data);
          result = 1;
          goto error_detected;
        }
@@ -216,7 +216,7 @@ void PrintError(const char* msg, uintptr_t ptr) {
     (0x4c 0x01 0xfc	  | # add %r15,%rsp
      0x4a 0x8d 0x24 0x3c)   # lea (%rsp,%r15,1),%rsp
     @{ if (restricted_register != REG_RSP) {
-	 PrintError("Incorrectly sandboxed %%rsp\n", p - data);
+	 PrintError("Incorrectly sandboxed %%rsp\n", begin - data);
          result = 1;
          goto error_detected;
        }
@@ -232,11 +232,11 @@ void PrintError(const char* msg, uintptr_t ptr) {
      0x83 0xe6 0xe0 0x4c 0x01 0xfe 0xff (0xd6|0xe6) | # naclcall/jmp %esi, %r15
      0x83 0xe7 0xe0 0x4c 0x01 0xff 0xff (0xd7|0xe7))  # naclcall/jmp %edi, %r15
     @{ if (restricted_register == REG_RSP) {
-	 PrintError("Incorrectly modified register %%rsp\n", p - data);
+	 PrintError("Incorrectly modified register %%rsp\n", begin - data);
          result = 1;
          goto error_detected;
        } else if (restricted_register == REG_RBP) {
-	 PrintError("Incorrectly modified register %%rbp\n", p - data);
+	 PrintError("Incorrectly modified register %%rbp\n", begin - data);
          result = 1;
          goto error_detected;
        }
@@ -252,11 +252,11 @@ void PrintError(const char* msg, uintptr_t ptr) {
      0x41 0x83 0xe5 0xe0 0x4d 0x01 0xfd 0x41 0xff (0xd5|0xe5) | # naclcall/jmp
      0x41 0x83 0xe6 0xe0 0x4d 0x01 0xfe 0x41 0xff (0xd6|0xe6))  #   %r14d, %r15
     @{ if (restricted_register == REG_RSP) {
-	 PrintError("Incorrectly modified register %%rsp\n", p - data);
+	 PrintError("Incorrectly modified register %%rsp\n", begin - data);
          result = 1;
          goto error_detected;
        } else if (restricted_register == REG_RBP) {
-	 PrintError("Incorrectly modified register %%rbp\n", p - data);
+	 PrintError("Incorrectly modified register %%rbp\n", begin - data);
          result = 1;
          goto error_detected;
        }
@@ -286,7 +286,7 @@ void PrintError(const char* msg, uintptr_t ptr) {
     (0xac		       | # lods   %ds:(%rsi),%al
      (data16|REXW_NONE)? 0xad)	 # lods   %ds:(%rsi),%ax/%eax/%rax
     @{ if (restricted_register != kSandboxedRsi) {
-	 PrintError("Incorrectly sandboxed %%rdi\n", p - data);
+	 PrintError("Incorrectly sandboxed %%rdi\n", begin - data);
          result = 1;
          goto error_detected;
        }
@@ -303,7 +303,7 @@ void PrintError(const char* msg, uintptr_t ptr) {
       rep? REXW_NONE? 0xab)	 # stos   %eax/%rax,%es:(%rdi)
     @{ if (restricted_register != kSandboxedRdi &&
 	   restricted_register != kSandboxedRsiSandboxedRdi) {
-	 PrintError("Incorrectly sandboxed %%rdi\n", p - data);
+	 PrintError("Incorrectly sandboxed %%rdi\n", begin - data);
          result = 1;
          goto error_detected;
        }
@@ -322,7 +322,7 @@ void PrintError(const char* msg, uintptr_t ptr) {
       data16 rep) 0xa5	      | # movsw	   %es:(%rdi),%ds:(%rsi)
      rep? REXW_NONE? 0xa5)	# movs[lq] %es:(%rdi),%ds:(%rsi)
     @{ if (restricted_register != kSandboxedRsiSandboxedRdi) {
-	 PrintError("Incorrectly sandboxed %%rsi or %%rdi\n", p - data);
+	 PrintError("Incorrectly sandboxed %%rsi or %%rdi\n", begin - data);
          result = 1;
          goto error_detected;
        }
@@ -341,7 +341,7 @@ void PrintError(const char* msg, uintptr_t ptr) {
 	vex_prefix3 = 0x00;
      })*
     $err{
-        process_error(p != eof ? p : p - 1, userdata);
+        process_error(begin, userdata);
 	result = 1;
 	goto error_detected;
     };
@@ -458,7 +458,7 @@ int ValidateChunk(const uint8_t *data, size_t size,
   uint8_t *jump_dests = BitmapAllocate(size);
 
   const uint8_t *p = data;
-  const uint8_t *begin;
+  const uint8_t *begin = p;  /* Start of the instruction being processed.  */
 
   uint8_t rex_prefix, vex_prefix2, vex_prefix3;
   struct Operand {
@@ -499,30 +499,20 @@ int ValidateChunk(const uint8_t *data, size_t size,
     %% write exec;
 
     if (restricted_register == REG_RBP) {
-      PrintError("Incorrectly sandboxed %%rbp\n", p - data);
+      PrintError("Incorrectly sandboxed %%rbp\n", begin - data);
       result = 1;
       goto error_detected;
     } else if (restricted_register == REG_RSP) {
-      PrintError("Incorrectly sandboxed %%rsp\n", p - data);
+      PrintError("Incorrectly sandboxed %%rsp\n", begin - data);
       result = 1;
       goto error_detected;
     }
-    error_detected:
-    if (result != 0) {
-      sandboxed_rsi = 0;
-      sandboxed_rsi_restricted_rdi = 0;
-      sandboxed_rdi = 0;
-      p++;
-    }
-  }
-
-  if (result != 0) {
-    return result;
   }
 
   if (CheckJumpTargets(valid_targets, jump_dests, size)) {
     return 1;
   }
 
+error_detected:
   return result;
 }
