@@ -114,6 +114,9 @@ class InstByteSequence:
         off += 1
       self.offsets[inst_begin] = off
 
+  def HasOffset(self, offset):
+    return offset in self.offsets
+
   def InstInBundle(self, inst_offset, bundle_start):
     assert(inst_offset in self.offsets)
     if bundle_start + 32 >= self.offsets[inst_offset]:
@@ -201,7 +204,7 @@ def RunTest(tmp, gas, decoder, validator, test):
     assert(start_pos < next_pos)
     # Collect erroreous offsets, stub them out, repeat until no error.
     while True:
-      asmfile = os.path.basename(hexfile[:-4]) + ('_part%d.s' % runs)
+      asmfile = os.path.basename(hexfile[:-4]) + ('_part%03d.s' % runs)
       asmfile = os.path.join(tmp, asmfile)
       (status, err_offset) = CheckAsm(asm, asmfile, gas, validator)
       runs += 1
@@ -209,6 +212,10 @@ def RunTest(tmp, gas, decoder, validator, test):
         return False
       if err_offset == None:
         break
+      if not hex_instructions.HasOffset(err_offset):
+        PrintError('validator returned error on offset that is not a ' +
+                   'start of an instruction: 0x%x' % err_offset)
+        return False
       top_errors.append(start_pos + err_offset)
       # If the instruction crosses the bundle boundary no more error is
       # expected.
