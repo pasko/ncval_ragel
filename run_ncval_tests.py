@@ -44,8 +44,8 @@ def PrintError(msg):
 
 def CheckDecoder(asm, tmp, hexfile, gas, decoder):
   basename = os.path.basename(hexfile[:-4])
-  asmfile = os.path.join(tmp , basename + '.all.s')
-  objfile = basename + '.o'
+  asmfile = os.path.join(tmp, basename + '.all.s')
+  objfile = os.path.join(tmp, basename + '.o')
   WriteFile(asmfile, asm)
   gas_cmd = [gas, asmfile, '-o', objfile]
   if subprocess.call(gas_cmd) != 0:
@@ -107,6 +107,8 @@ class InstByteSequence:
       if line.startswith('#'):
         continue
       for word in line.rstrip().split(' '):
+        if re.match(r'^\s*$', word):
+          continue
         assert(re.match(r'[0-9a-zA-Z][0-9a-zA-Z]', word))
         self.inst_bytes.append(word)
         off += 1
