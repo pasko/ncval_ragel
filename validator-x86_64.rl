@@ -340,6 +340,7 @@ void PrintError(const char* msg, uintptr_t ptr) {
 	vex_prefix2 = 0xe0;
 	vex_prefix3 = 0x00;
      })*
+     @{ begin = p + 1; }
     $err{
         process_error(begin, userdata);
 	result = 1;
