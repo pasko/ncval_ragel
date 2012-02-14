@@ -36,7 +36,7 @@ def Main(argv):
       off = bundle_offset - 1
       while off >= 0:
         if insts.HasOffset(off):
-          err_offsets[off] = 'validation error'
+          err_offsets[off] = ['crosses boundary']
           break
         off -= 1
 
@@ -53,13 +53,14 @@ def Main(argv):
         continue
       val_error_m = re.match(r'VALIDATOR: ERROR:', ln)
       if val_error_m and seen_offset and prev_offset != offset:
-        err_offsets[offset] = 'validation error'
+        err_offsets.setdefault(offset, []).append('validation error')
       seen_offset = False
 
     # Output the error messages in offset order.
     golden_text = ''
-    for off, msg in sorted(err_offsets.iteritems()):
-      golden_text += 'offset 0x%x: %s\n' % (off, msg)
+    for off, msg_lst in sorted(err_offsets.iteritems()):
+      for msg in msg_lst:
+        golden_text += 'offset 0x%x: %s\n' % (off, msg)
     filename = arg[:-5] + '.val.ref'
     print 'writing file: %s' % filename
     WriteFile(filename, golden_text)

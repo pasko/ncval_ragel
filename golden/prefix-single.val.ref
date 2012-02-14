@@ -15,6 +15,7 @@ offset 0x52: validation error
 offset 0x55: validation error
 offset 0x58: validation error
 offset 0x5b: validation error
+offset 0x5e: crosses boundary
 offset 0x5e: validation error
 offset 0x61: validation error
 offset 0x64: validation error

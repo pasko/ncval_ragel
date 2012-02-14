@@ -13,4 +13,5 @@ offset 0x1b: validation error
 offset 0x1c: validation error
 offset 0x1d: validation error
 offset 0x1e: validation error
+offset 0x1f: crosses boundary
 offset 0x1f: validation error
