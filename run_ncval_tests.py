@@ -79,10 +79,11 @@ def CheckAsm(asm, asmfile, gas, validator):
   return (True, offsets[0])
 
 
-def CompareOffsets(tmp, off_list, hexfile):
+def CompareOffsets(tmp, off_info, hexfile):
   output = ''
-  for off in off_list:
-    output += 'offset 0x%x: validation error\n' % off
+  for off, msg_list in sorted(off_info.iteritems()):
+    for msg in msg_list:
+      output += 'offset 0x%x: %s\n' % (off, msg)
   basename = os.path.basename(hexfile[:-4])
   output_file = os.path.join(tmp , basename + '.val.out')
   WriteFile(output_file, output)
@@ -90,7 +91,7 @@ def CompareOffsets(tmp, off_list, hexfile):
   golden = ReadFile(golden_file)
   if output == golden:
     return True
-  PrintError('files differ: %s %s' % (output_file, golden_file))
+  PrintError('files differ: %s %s' % (golden_file, output_file))
   return False
 
 
@@ -100,6 +101,7 @@ class InstByteSequence:
     self.offsets = {}
 
   def Parse(self, hexfile):
+    # print 'parsing %s' % hexfile
     off = 0
     inst_begin = 0
     for line in open(hexfile, 'r').readlines():
@@ -121,6 +123,15 @@ class InstByteSequence:
     assert((bundle_start + inst_offset) in self.offsets)
     if bundle_start + 32 >= self.offsets[bundle_start + inst_offset]:
       return True
+    return False
+
+  def OffsetBelongsToInst(self, offset, inst_start):
+    assert(inst_start in self.offsets)
+    for i in xrange(inst_start, len(self.inst_bytes)):
+      if self.HasOffset(i):
+        return False
+      if i == offset:
+        return True
     return False
 
   def StuboutInst(self, offset):
@@ -195,7 +206,7 @@ def RunTest(tmp, gas, decoder, validator, test):
   # Cut the input instructions in bundles and run a test for each bundle.
   start_pos = 0
   runs = 0
-  top_errors = []
+  top_errors = {}
   while True:
     (asm, next_pos) = hex_instructions.GenAsmBundle(start_pos)
     if next_pos == 0:
@@ -212,14 +223,34 @@ def RunTest(tmp, gas, decoder, validator, test):
         return False
       if err_offset == None:
         break
+      print 'err_offset: 0x%x, global_err_offset: 0x%x, asmfile: %s' % (
+          err_offset,
+          err_offset + start_pos,
+          asmfile)
       if not hex_instructions.HasOffset(start_pos + err_offset):
         PrintError('validator returned error on offset that is not a ' +
                    'start of an instruction: 0x%x' % start_pos + err_offset)
         return False
-      top_errors.append(start_pos + err_offset)
-      # If the instruction crosses the bundle boundary no more error is
-      # expected.
-      if not hex_instructions.InstInBundle(err_offset, start_pos):
+      if hex_instructions.InstInBundle(err_offset, start_pos):
+        top_errors[start_pos + err_offset] = ['validation error']
+      else:
+        # If the instruction crosses the bundle boundary, we check if it gets
+        # validated if placed not on the edge, then go processing the next
+        # bundle.  Stubout the instruction if necessary.
+        top_errors[start_pos + err_offset] = ['crosses boundary']
+        (asm, unused_next_pos) = (
+            hex_instructions.GenAsmBundle(start_pos + err_offset))
+        assert(asm)
+        asmfile = os.path.basename(hexfile[:-4]) + ('_part%03d.s' % runs)
+        asmfile = os.path.join(tmp, asmfile)
+        (status, boundary_err_offset) = CheckAsm(asm, asmfile, gas, validator)
+        runs += 1
+        if boundary_err_offset != None:
+          if hex_instructions.OffsetBelongsToInst(boundary_err_offset,
+                                                  start_pos + err_offset):
+            top_errors[start_pos + err_offset].append('validation error')
+        hex_instructions.StuboutInst(start_pos + err_offset)
+        start_pos += 32
         break
       hex_instructions.StuboutInst(start_pos + err_offset)
       (asm, unused_next_pos) = hex_instructions.GenAsmBundle(start_pos)
@@ -253,8 +284,9 @@ def Main():
 #      default='segment_aligned',
 #      default='segment_not_aligned',
 #      default='update-rsp',
-      default='sse,legacy,rex_invalid,ud2,stosd67,mov-lea-rbp,valid_lea_store,mov-lea-rbp-bad-1,mov-esi-nop-use,mov-lea-rbp-bad-3,call-ex,data66prefix,maskmov_test,rip-relative,incno67,hlt,change-subregs,pop-rbp,invalid_base,prefix-single,prefix-3,call_not_aligned,add_rsp_r15,prefix-2,invalid_base_store,add_mult_prefix,segment_store,lea-rsp,inc67,extensions,mov_rbp_2_rsp,rip67,movsbw,sub-add-rsp,fs_use,cpuid,read_const_ptr,cmpxchg,add_cs_gs_prefix,mov-lea-rbp-bad-5,nacl_illegal,rep_tests,mov-lea-rsp,test_insts,valid_base_only,mov-lea-rbp-bad-4,fpu,rdmsr,segment_assign,bad66,wrmsr,stosd,mv_ebp_alone,jump_atomic,movlps-ex,3DNow,bsf-mask,mv_ebp_add_rbp_r15,jmp-16,nops,ambig-segment,bt,sub-rsp,strings,mov_esp_add_rsp_r15,indirect_jmp_masked,movs_test,addrex,addrex2,bsr-mask,stosd-bad,indirect_jmp_not_masked,call_aligned,rex_not_last,invalid_width_index,jump_outside,x87,mmx,rbp67,push-memoff,AhNotSubRsp,call_not_aligned_16,mov-lea-rbp-bad-2,valid_and_store,stosdno67,lea,dup-prefix,stubseq,lea-add-rsp',
-#      default='bt',
+#      default='sse,legacy,rex_invalid,ud2,stosd67,mov-lea-rbp,valid_lea_store,mov-lea-rbp-bad-1,mov-esi-nop-use,mov-lea-rbp-bad-3,call-ex,data66prefix,maskmov_test,rip-relative,incno67,hlt,change-subregs,pop-rbp,invalid_base,prefix-single,prefix-3,call_not_aligned,add_rsp_r15,prefix-2,invalid_base_store,add_mult_prefix,segment_store,lea-rsp,inc67,extensions,mov_rbp_2_rsp,rip67,movsbw,sub-add-rsp,fs_use,cpuid,read_const_ptr,cmpxchg,add_cs_gs_prefix,mov-lea-rbp-bad-5,nacl_illegal,rep_tests,mov-lea-rsp,test_insts,valid_base_only,mov-lea-rbp-bad-4,fpu,rdmsr,segment_assign,bad66,wrmsr,stosd,mv_ebp_alone,jump_atomic,movlps-ex,3DNow,bsf-mask,mv_ebp_add_rbp_r15,jmp-16,nops,ambig-segment,bt,sub-rsp,strings,mov_esp_add_rsp_r15,indirect_jmp_masked,movs_test,addrex,addrex2,bsr-mask,stosd-bad,indirect_jmp_not_masked,call_aligned,rex_not_last,invalid_width_index,jump_outside,x87,mmx,rbp67,push-memoff,AhNotSubRsp,call_not_aligned_16,mov-lea-rbp-bad-2,valid_and_store,stosdno67,lea,dup-prefix,stubseq,lea-add-rsp',
+#      default='sse',
+      default='nops',
       help='a comma-separated list of tests')
   parser.add_option(
       '-a', '--gas', dest='gas',
