@@ -118,8 +118,8 @@ class InstByteSequence:
     return offset in self.offsets
 
   def InstInBundle(self, inst_offset, bundle_start):
-    assert(inst_offset in self.offsets)
-    if bundle_start + 32 >= self.offsets[inst_offset]:
+    assert((bundle_start + inst_offset) in self.offsets)
+    if bundle_start + 32 >= self.offsets[bundle_start + inst_offset]:
       return True
     return False
 
@@ -212,9 +212,9 @@ def RunTest(tmp, gas, decoder, validator, test):
         return False
       if err_offset == None:
         break
-      if not hex_instructions.HasOffset(err_offset):
+      if not hex_instructions.HasOffset(start_pos + err_offset):
         PrintError('validator returned error on offset that is not a ' +
-                   'start of an instruction: 0x%x' % err_offset)
+                   'start of an instruction: 0x%x' % start_pos + err_offset)
         return False
       top_errors.append(start_pos + err_offset)
       # If the instruction crosses the bundle boundary no more error is
