@@ -127,6 +127,8 @@ class InstByteSequence:
 
   def OffsetBelongsToInst(self, offset, inst_start):
     assert(inst_start in self.offsets)
+    if offset == inst_start:
+      return True
     for i in xrange(inst_start, len(self.inst_bytes)):
       if self.HasOffset(i):
         return False
