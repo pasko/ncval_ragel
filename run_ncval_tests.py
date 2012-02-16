@@ -244,10 +244,6 @@ class TestRunner:
         if err_in_bundle == None:
           break
         err_offset = start_pos + err_in_bundle
-        print 'start_pos: 0x%x, err_in_bundle: 0x%x, global_err_offset: 0x%x' % (
-            start_pos,
-            err_in_bundle,
-            err_offset)
         if not hex_instructions.HasOffset(err_offset):
           PrintError('validator returned error on offset that is not a ' +
                      'start of an instruction: 0x%x' % err_offset)
@@ -271,7 +267,6 @@ class TestRunner:
                                                     err_offset):
               top_errors[err_offset].append('validation error')
           hex_instructions.StuboutInst(err_offset)
-          print 'stubout offset: 0x%x' % err_offset
           break
       start_pos += 32
 
