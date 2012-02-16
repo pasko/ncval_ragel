@@ -280,6 +280,9 @@ def Main():
   parser = optparse.OptionParser()
   parser.add_option(
       '-t', '--tests', dest='tests',
+# new validator allows unaligned calls:
+#      default='call_not_aligned',
+#      default='call_not_aligned_16',
 # reports error on instruction that follows the xchg esp, ebp, replacing it does not help
 #      default='stack_regs',
 #      default='mov-lea-rbp-bad-1',
@@ -302,7 +305,7 @@ def Main():
 #      default='segment_aligned',
 #      default='segment_not_aligned',
 #      default='update-rsp',
-      default='sse,legacy,rex_invalid,ud2,stosd67,mov-lea-rbp,valid_lea_store,mov-esi-nop-use,call-ex,maskmov_test,rip-relative,incno67,hlt,change-subregs,pop-rbp,invalid_base,prefix-single,prefix-3,call_not_aligned,add_rsp_r15,prefix-2,invalid_base_store,add_mult_prefix,segment_store,lea-rsp,inc67,extensions,mov_rbp_2_rsp,rip67,movsbw,sub-add-rsp,fs_use,cpuid,read_const_ptr,cmpxchg,add_cs_gs_prefix,mov-lea-rbp-bad-5,nacl_illegal,rep_tests,mov-lea-rsp,test_insts,valid_base_only,fpu,rdmsr,segment_assign,bad66,wrmsr,stosd,jump_atomic,movlps-ex,3DNow,bsf-mask,mv_ebp_add_rbp_r15,jmp-16,nops,ambig-segment,bt,sub-rsp,strings,mov_esp_add_rsp_r15,indirect_jmp_masked,movs_test,addrex,addrex2,bsr-mask,stosd-bad,indirect_jmp_not_masked,call_aligned,rex_not_last,invalid_width_index,jump_outside,x87,mmx,rbp67,push-memoff,AhNotSubRsp,call_not_aligned_16,valid_and_store,stosdno67,lea,dup-prefix,lea-add-rsp',
+      default='sse,legacy,rex_invalid,ud2,stosd67,mov-lea-rbp,valid_lea_store,mov-esi-nop-use,call-ex,maskmov_test,rip-relative,incno67,hlt,change-subregs,pop-rbp,invalid_base,prefix-single,prefix-3,add_rsp_r15,prefix-2,invalid_base_store,add_mult_prefix,segment_store,lea-rsp,inc67,extensions,mov_rbp_2_rsp,rip67,movsbw,sub-add-rsp,fs_use,cpuid,read_const_ptr,cmpxchg,add_cs_gs_prefix,mov-lea-rbp-bad-5,nacl_illegal,rep_tests,mov-lea-rsp,test_insts,valid_base_only,fpu,rdmsr,segment_assign,bad66,wrmsr,stosd,jump_atomic,movlps-ex,3DNow,bsf-mask,mv_ebp_add_rbp_r15,jmp-16,nops,ambig-segment,bt,sub-rsp,strings,mov_esp_add_rsp_r15,indirect_jmp_masked,movs_test,addrex,addrex2,bsr-mask,stosd-bad,indirect_jmp_not_masked,call_aligned,rex_not_last,invalid_width_index,jump_outside,x87,mmx,rbp67,push-memoff,AhNotSubRsp,valid_and_store,stosdno67,lea,dup-prefix,lea-add-rsp',
 #      default='sse',
 #      default='nops',
 #      default='bt',
