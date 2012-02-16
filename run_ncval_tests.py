@@ -42,59 +42,6 @@ def PrintError(msg):
   print >> sys.stderr, 'error: %s' % msg
 
 
-def CheckDecoder(asm, tmp, hexfile, gas, decoder):
-  basename = os.path.basename(hexfile[:-4])
-  asmfile = os.path.join(tmp, basename + '.all.s')
-  objfile = os.path.join(tmp, basename + '.o')
-  WriteFile(asmfile, asm)
-  gas_cmd = [gas, asmfile, '-o', objfile]
-  if subprocess.call(gas_cmd) != 0:
-    PrintError('assembler failed to execute command: %s' % gas_cmd)
-    return False
-  decoder_process = subprocess.Popen([decoder, objfile], stdout=subprocess.PIPE)
-  (decode_out, decode_err) = decoder_process.communicate()
-  WriteFile(os.path.join(tmp, basename + '.all.decode.out'), decode_out)
-  # TODO: compare with objdump
-  return True
-
-
-def CheckAsm(asm, asmfile, gas, validator):
-  WriteFile(asmfile, asm)
-  basename = asmfile[:-2]
-  objfile = basename + '.o'
-  if subprocess.call([gas, asmfile, '-o', objfile]) != 0:
-    return (False, [])
-  validator_process = subprocess.Popen([validator, objfile],
-                                       stdout=subprocess.PIPE)
-  (val_out, val_err) = validator_process.communicate()
-  offsets = []
-  for line in string.split(val_out, '\n'):
-    re_match = re.match(r'offset ([^:]+):.+', line)
-    if not re_match:
-      continue
-    offsets.append(int(re_match.group(1), 16))
-  assert(len(offsets) < 2)
-  if len(offsets) == 0:
-    return (True, None)
-  return (True, offsets[0])
-
-
-def CompareOffsets(tmp, off_info, hexfile):
-  output = ''
-  for off, msg_list in sorted(off_info.iteritems()):
-    for msg in msg_list:
-      output += 'offset 0x%x: %s\n' % (off, msg)
-  basename = os.path.basename(hexfile[:-4])
-  output_file = os.path.join(tmp , basename + '.val.out')
-  WriteFile(output_file, output)
-  golden_file = os.path.join('golden', basename + '.val.ref')
-  golden = ReadFile(golden_file)
-  if output == golden:
-    return True
-  PrintError('files differ: %s %s' % (golden_file, output_file))
-  return False
-
-
 class InstByteSequence:
   def __init__(self):
     self.inst_bytes = []
@@ -146,7 +93,8 @@ class InstByteSequence:
     Returns:
       A pair of (asm, next_offset), where:
       asm - text representing code for the bundle suitable as assembler input
-      next_offset - offset of the instruction to start the next bundle from
+      has_next - boolean value indicating presence of instruction bytes after
+          the bundle
     """
     off = start_offset
     asm = '.text\n'
@@ -178,11 +126,13 @@ class InstByteSequence:
       if inst_fully_written:
         off = self.offsets[off]
 
+    has_next = True
     if off == len(self.inst_bytes):
-      off = 0
+      has_next = False
     for i in xrange((32 - (bytes_written % 32)) % 32):
       asm += 'nop\n'
-    return (asm, off)
+    assert(asm)
+    return (asm, has_next)
 
   def GenAsm(self):
     """
@@ -202,81 +152,133 @@ class InstByteSequence:
     return asm
 
 
-def RunTest(tmp, gas, decoder, validator, test):
-  hexfile = 'testdata/64/%s.hex' % test
-  if not os.path.exists(hexfile):
-    PrintError('%s: no such file' % hexfile)
+class TestRunner:
+  def __init__(self, tmpdir, gas, decoder, validator):
+    self.tmp = tmpdir
+    self.gas = gas
+    self.decoder = decoder
+    self.validator = validator
+
+  def CheckDecoder(self, asm, hexfile):
+    basename = os.path.basename(hexfile[:-4])
+    asmfile = os.path.join(self.tmp, basename + '.all.s')
+    objfile = os.path.join(self.tmp, basename + '.o')
+    WriteFile(asmfile, asm)
+    gas_cmd = [self.gas, asmfile, '-o', objfile]
+    if subprocess.call(gas_cmd) != 0:
+      PrintError('assembler failed to execute command: %s' % gas_cmd)
+      return False
+    decoder_process = subprocess.Popen([self.decoder, objfile],
+                                       stdout=subprocess.PIPE)
+    (decode_out, decode_err) = decoder_process.communicate()
+    WriteFile(os.path.join(self.tmp, basename + '.all.decode.out'), decode_out)
+    # TODO: compare with objdump
+    return True
+
+  def CheckAsm(self, asm, hexfile, runs):
+    asmfile = os.path.basename(hexfile[:-4]) + ('_part%03d.s' % runs)
+    asmfile = os.path.join(self.tmp, asmfile)
+    WriteFile(asmfile, asm)
+    basename = asmfile[:-2]
+    objfile = basename + '.o'
+    if subprocess.call([self.gas, asmfile, '-o', objfile]) != 0:
+      return (False, [])
+    validator_process = subprocess.Popen([self.validator, objfile],
+                                         stdout=subprocess.PIPE)
+    (val_out, val_err) = validator_process.communicate()
+    offsets = []
+    for line in string.split(val_out, '\n'):
+      re_match = re.match(r'offset ([^:]+):.+', line)
+      if not re_match:
+        continue
+      offsets.append(int(re_match.group(1), 16))
+    assert(len(offsets) < 2)
+    if len(offsets) == 0:
+      return (True, None)
+    return (True, offsets[0])
+
+  def CompareOffsets(self, off_info, hexfile):
+    output = ''
+    for off, msg_list in sorted(off_info.iteritems()):
+      for msg in msg_list:
+        output += 'offset 0x%x: %s\n' % (off, msg)
+    basename = os.path.basename(hexfile[:-4])
+    output_file = os.path.join(self.tmp , basename + '.val.out')
+    WriteFile(output_file, output)
+    golden_file = os.path.join('golden', basename + '.val.ref')
+    golden = ReadFile(golden_file)
+    if output == golden:
+      return True
+    PrintError('files differ: %s %s' % (golden_file, output_file))
     return False
 
-  # Initialize the list of byte sequences representing instructions.
-  hex_instructions = InstByteSequence()
-  hex_instructions.Parse(hexfile)
+  def RunTest(self, test):
+    hexfile = 'testdata/64/%s.hex' % test
+    if not os.path.exists(hexfile):
+      PrintError('%s: no such file' % hexfile)
+      return False
 
-  # Check disassembling of the whole input.
-  if not CheckDecoder(hex_instructions.GenAsm(), tmp, hexfile, gas, decoder):
-    return False
+    # Initialize the list of byte sequences representing instructions.
+    hex_instructions = InstByteSequence()
+    hex_instructions.Parse(hexfile)
 
-  # Cut the input instructions in bundles and run a test for each bundle.
-  start_pos = 0
-  runs = 0
-  top_errors = {}
-  while True:
-    (asm, next_pos) = hex_instructions.GenAsmBundle(start_pos)
-    assert(asm)
-    # Collect erroreous offsets, stub them out, repeat until no error.
-    while True:
-      asmfile = os.path.basename(hexfile[:-4]) + ('_part%03d.s' % runs)
-      asmfile = os.path.join(tmp, asmfile)
-      (status, err_offset_in_bundle) = CheckAsm(asm, asmfile, gas, validator)
-      runs += 1
-      if not status:
-        return False
-      if err_offset_in_bundle == None:
-        break
-      err_offset = start_pos + err_offset_in_bundle
-      print 'start_pos: 0x%x, err_offset_in_bundle: 0x%x, global_err_offset: 0x%x, asmfile: %s' % (
-          start_pos,
-          err_offset_in_bundle,
-          err_offset,
-          asmfile)
-      if not hex_instructions.HasOffset(err_offset):
-        PrintError('validator returned error on offset that is not a ' +
-                   'start of an instruction: 0x%x' % err_offset)
-        return False
-      if hex_instructions.InstInBundle(err_offset_in_bundle, start_pos):
-        top_errors[err_offset] = ['validation error']
-        hex_instructions.StuboutInst(err_offset)
-        (asm, unused_next_pos) = hex_instructions.GenAsmBundle(start_pos)
-      else:
-        # If the instruction crosses the bundle boundary, we check if it gets
-        # validated as placed at address 0mod32, then go processing the next
-        # bundle.  Stubout the instruction if necessary.
-        top_errors[err_offset] = ['crosses boundary']
-        (asm, unused_next_pos) = hex_instructions.GenAsmBundle(err_offset)
-        assert(asm)
-        asmfile = os.path.basename(hexfile[:-4]) + ('_part%03d.s' % runs)
-        asmfile = os.path.join(tmp, asmfile)
-        (status, boundary_err_offset) = CheckAsm(asm, asmfile, gas, validator)
+    # Check disassembling of the whole input.
+    if not self.CheckDecoder(hex_instructions.GenAsm(), hexfile):
+      return False
+
+    # Cut the input instruction sequence in bundles and run a test for each
+    # bundle.  For instructions that cross a bundle run an additional
+    # test that starts from this instruction.
+    start_pos = 0
+    runs = 0
+    top_errors = {}
+    has_next = True
+    while has_next:
+      (asm, has_next) = hex_instructions.GenAsmBundle(start_pos)
+      # Collect erroreous offsets, stub them out, repeat until no error.
+      while True:
+        (status, err_in_bundle) = self.CheckAsm(asm, hexfile, runs)
         runs += 1
         if not status:
           return False
-        if boundary_err_offset != None:
-          if hex_instructions.OffsetBelongsToInst(err_offset + boundary_err_offset,
-                                                  err_offset):
-            top_errors[err_offset].append('validation error')
-        hex_instructions.StuboutInst(err_offset)
-        print 'stubout offset: 0x%x' % err_offset
-        break
+        if err_in_bundle == None:
+          break
+        err_offset = start_pos + err_in_bundle
+        print 'start_pos: 0x%x, err_in_bundle: 0x%x, global_err_offset: 0x%x' % (
+            start_pos,
+            err_in_bundle,
+            err_offset)
+        if not hex_instructions.HasOffset(err_offset):
+          PrintError('validator returned error on offset that is not a ' +
+                     'start of an instruction: 0x%x' % err_offset)
+          return False
+        if hex_instructions.InstInBundle(err_in_bundle, start_pos):
+          top_errors[err_offset] = ['validation error']
+          hex_instructions.StuboutInst(err_offset)
+          (asm, unused) = hex_instructions.GenAsmBundle(start_pos)
+        else:
+          # If the instruction crosses the bundle boundary, we check if it gets
+          # validated as placed at address 0mod32, then go processing the next
+          # bundle.  Stubout the instruction if necessary.
+          top_errors[err_offset] = ['crosses boundary']
+          (asm, unused) = hex_instructions.GenAsmBundle(err_offset)
+          (status, cross_err_off) = self.CheckAsm(asm, hexfile, runs)
+          runs += 1
+          if not status:
+            return False
+          if cross_err_off != None:
+            if hex_instructions.OffsetBelongsToInst(err_offset + cross_err_off,
+                                                    err_offset):
+              top_errors[err_offset].append('validation error')
+          hex_instructions.StuboutInst(err_offset)
+          print 'stubout offset: 0x%x' % err_offset
+          break
+      start_pos += 32
 
-    if next_pos == 0:
-      # TODO: next_pos -> has_next
-      break
-    start_pos += 32
-
-  # Compare the collected offsets with the golden file.
-  if not CompareOffsets(tmp, top_errors, hexfile):
-    return False
-  return True
+    # Compare the collected offsets with the golden file.
+    if not self.CompareOffsets(top_errors, hexfile):
+      return False
+    return True
 
 
 def Main():
@@ -335,8 +337,9 @@ def Main():
       not opt.validator):
     parser.error('invalid arguments')
   no_failures = True
+  tester = TestRunner(opt.tmp, opt.gas, opt.decoder, opt.validator)
   for tst in string.split(opt.tests, ','):
-    if RunTest(opt.tmp, opt.gas, opt.decoder, opt.validator, tst):
+    if tester.RunTest(tst):
       print '%s: PASS' % tst
     else:
       print '%s: FAIL' % tst
