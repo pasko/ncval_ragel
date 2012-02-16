@@ -223,11 +223,7 @@ def RunTest(tmp, gas, decoder, validator, test):
   top_errors = {}
   while True:
     (asm, next_pos) = hex_instructions.GenAsmBundle(start_pos)
-    if next_pos == 0:
-      # TODO: next_pos -> has_next
-      break
     assert(asm)
-    assert(start_pos < next_pos)
     # Collect erroreous offsets, stub them out, repeat until no error.
     while True:
       asmfile = os.path.basename(hexfile[:-4]) + ('_part%03d.s' % runs)
@@ -262,8 +258,6 @@ def RunTest(tmp, gas, decoder, validator, test):
         asmfile = os.path.basename(hexfile[:-4]) + ('_part%03d.s' % runs)
         asmfile = os.path.join(tmp, asmfile)
         (status, boundary_err_offset) = CheckAsm(asm, asmfile, gas, validator)
-        print 'file: %s, boundary_err_offset: 0x%x' % (asmfile,
-                                                       boundary_err_offset)
         runs += 1
         if not status:
           return False
@@ -275,6 +269,9 @@ def RunTest(tmp, gas, decoder, validator, test):
         print 'stubout offset: 0x%x' % (start_pos + err_offset)
         break
 
+    if next_pos == 0:
+      # TODO: next_pos -> has_next
+      break
     start_pos += 32
 
   # Compare the collected offsets with the golden file.
