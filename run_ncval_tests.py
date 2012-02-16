@@ -152,19 +152,19 @@ class InstByteSequence:
     asm = '.text\n'
     bytes_written = 0
 
-    # Allow to start from an offset that does not start an instruction.
+    # Allow to start from offset that does not start an instruction.
     sep = '.byte 0x'
-    while True:
+    while off < len(self.inst_bytes):
       if off in self.offsets:
-        if bytes_written > 0:
-          asm += '\n'
         break
       asm += sep + self.inst_bytes[off]
       sep = ', 0x'
       bytes_written += 1
       off += 1
+    if bytes_written > 0:
+      asm += '\n'
 
-    while True:
+    while bytes_written != 32 and off != len(self.inst_bytes):
       sep = '.byte 0x'
       inst_fully_written = True
       for i in xrange(off, self.offsets[off]):
@@ -177,8 +177,7 @@ class InstByteSequence:
       asm += '\n'
       if inst_fully_written:
         off = self.offsets[off]
-      if bytes_written == 32 or off == len(self.inst_bytes):
-        break
+
     if off == len(self.inst_bytes):
       off = 0
     for i in xrange((32 - (bytes_written % 32)) % 32):
@@ -303,7 +302,9 @@ def Main():
 #      default='update-rsp',
 #      default='sse,legacy,rex_invalid,ud2,stosd67,mov-lea-rbp,valid_lea_store,mov-lea-rbp-bad-1,mov-esi-nop-use,mov-lea-rbp-bad-3,call-ex,data66prefix,maskmov_test,rip-relative,incno67,hlt,change-subregs,pop-rbp,invalid_base,prefix-single,prefix-3,call_not_aligned,add_rsp_r15,prefix-2,invalid_base_store,add_mult_prefix,segment_store,lea-rsp,inc67,extensions,mov_rbp_2_rsp,rip67,movsbw,sub-add-rsp,fs_use,cpuid,read_const_ptr,cmpxchg,add_cs_gs_prefix,mov-lea-rbp-bad-5,nacl_illegal,rep_tests,mov-lea-rsp,test_insts,valid_base_only,mov-lea-rbp-bad-4,fpu,rdmsr,segment_assign,bad66,wrmsr,stosd,mv_ebp_alone,jump_atomic,movlps-ex,3DNow,bsf-mask,mv_ebp_add_rbp_r15,jmp-16,nops,ambig-segment,bt,sub-rsp,strings,mov_esp_add_rsp_r15,indirect_jmp_masked,movs_test,addrex,addrex2,bsr-mask,stosd-bad,indirect_jmp_not_masked,call_aligned,rex_not_last,invalid_width_index,jump_outside,x87,mmx,rbp67,push-memoff,AhNotSubRsp,call_not_aligned_16,mov-lea-rbp-bad-2,valid_and_store,stosdno67,lea,dup-prefix,stubseq,lea-add-rsp',
 #      default='sse',
-      default='nops',
+#      default='nops',
+#      default='bt',
+      default='legacy',
       help='a comma-separated list of tests')
   parser.add_option(
       '-a', '--gas', dest='gas',
