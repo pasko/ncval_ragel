@@ -146,10 +146,22 @@ class InstByteSequence:
       asm - text representing code for the bundle suitable as assembler input
       next_offset - offset of the instruction to start the next bundle from
     """
-    assert(start_offset in self.offsets)
     off = start_offset
     asm = '.text\n'
     bytes_written = 0
+
+    # Allow to start from an offset that does not start an instruction.
+    sep = '.byte 0x'
+    while True:
+      if off in self.offsets:
+        if bytes_written > 0:
+          asm += '\n'
+        break
+      asm += sep + self.inst_bytes[off]
+      sep = ', 0x'
+      bytes_written += 1
+      off += 1
+
     while True:
       sep = '.byte 0x'
       inst_fully_written = True
@@ -210,6 +222,7 @@ def RunTest(tmp, gas, decoder, validator, test):
   while True:
     (asm, next_pos) = hex_instructions.GenAsmBundle(start_pos)
     if next_pos == 0:
+      # TODO: next_pos -> has_next
       break
     assert(asm)
     assert(start_pos < next_pos)
@@ -223,19 +236,22 @@ def RunTest(tmp, gas, decoder, validator, test):
         return False
       if err_offset == None:
         break
-      print 'err_offset: 0x%x, global_err_offset: 0x%x, asmfile: %s' % (
+      print 'start_pos: 0x%x, err_offset: 0x%x, global_err_offset: 0x%x, asmfile: %s' % (
+          start_pos,
           err_offset,
           err_offset + start_pos,
           asmfile)
       if not hex_instructions.HasOffset(start_pos + err_offset):
         PrintError('validator returned error on offset that is not a ' +
-                   'start of an instruction: 0x%x' % start_pos + err_offset)
+                   'start of an instruction: 0x%x' % (start_pos + err_offset))
         return False
       if hex_instructions.InstInBundle(err_offset, start_pos):
         top_errors[start_pos + err_offset] = ['validation error']
+        hex_instructions.StuboutInst(start_pos + err_offset)
+        (asm, unused_next_pos) = hex_instructions.GenAsmBundle(start_pos)
       else:
         # If the instruction crosses the bundle boundary, we check if it gets
-        # validated if placed not on the edge, then go processing the next
+        # validated as placed at address 0mod32, then go processing the next
         # bundle.  Stubout the instruction if necessary.
         top_errors[start_pos + err_offset] = ['crosses boundary']
         (asm, unused_next_pos) = (
@@ -244,18 +260,20 @@ def RunTest(tmp, gas, decoder, validator, test):
         asmfile = os.path.basename(hexfile[:-4]) + ('_part%03d.s' % runs)
         asmfile = os.path.join(tmp, asmfile)
         (status, boundary_err_offset) = CheckAsm(asm, asmfile, gas, validator)
+        print 'file: %s, boundary_err_offset: 0x%x' % (asmfile,
+                                                       boundary_err_offset)
         runs += 1
+        if not status:
+          return False
         if boundary_err_offset != None:
-          if hex_instructions.OffsetBelongsToInst(boundary_err_offset,
+          if hex_instructions.OffsetBelongsToInst(start_pos + err_offset + boundary_err_offset,
                                                   start_pos + err_offset):
             top_errors[start_pos + err_offset].append('validation error')
         hex_instructions.StuboutInst(start_pos + err_offset)
-        start_pos += 32
+        print 'stubout offset: 0x%x' % (start_pos + err_offset)
         break
-      hex_instructions.StuboutInst(start_pos + err_offset)
-      (asm, unused_next_pos) = hex_instructions.GenAsmBundle(start_pos)
 
-    start_pos = next_pos
+    start_pos += 32
 
   # Compare the collected offsets with the golden file.
   if not CompareOffsets(tmp, top_errors, hexfile):
